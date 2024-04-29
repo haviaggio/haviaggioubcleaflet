@@ -1,187 +1,117 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Leaflet Exercise</title>
-    <meta charset="utf-8" />
+<head>
+  <title>Leaflet Exercise</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <style>
+    #mapid { width: 600px; height: 400px; }
+    #controls { margin: 15px; }
+  </style>
+</head>
+<body>
+  <div id="mapid"></div>
+  <div id="controls">
+    <button id="showAllTreesButton">Show All Trees</button>
+    <span style="display:inline-block; width: 30px"></span>
+    <input type="text" id="highlightTreesTextEntry" placeholder="tree taxa" />
+    <button id="highlightTreesButton">Highlight</button>
+    <button id="resetHighlightButton">Reset</button>
+  </div>
 
-    <!-- Leaflet styles and code. Place in the <head></head> element. -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
-    />
-    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('mapid', {
+      center: [49.265637, -123.256113],
+      zoom: 15
+    });
 
-    <!-- jQuery is a library that simplifies many things in JavaScript. 
-	     We'll use it to retrieve data from the web. -->
-    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: 'Basemap data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-    <script src="./p5.min.js"></script>
-    <!-- this should be unnecessary in this code, as we aren't using p5.js...
-       but since I'm showing you the code running in the p5 editor,
-       the editor expects p5.js to be here...
-       otherwise, it gives you a "TypeError: window.p5 is undefined".
-       We won't use any of p5.js's commands, though! -->
-  </head>
-  <body>
-    <div id="mapid" style="width: 600px; height: 400px;"></div>
-    <!-- Our web map will get placed into this div element -->
+    var treeMarkerOptions = {
+      radius: 4,
+      fillColor: "#007800",
+      color: "#000",
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    };
 
-    <div id="controls" style="margin: 15px;">
-      <button id="showAllTreesButton">Show All Trees</button>
+    var treeMarkerHighlightedOptions = {
+      radius: 6,
+      fillColor: "#FF9900",
+      color: "#000",
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    };
 
-      <span style="display:inline-block; width: 30px"></span>
-      <input type="text" id="highlightTreesTextEntry" placeholder="tree taxa" />
-      <button id="highlightTreesButton">Highlight</button>
-    </div>
+    function onEachTree(feature, layer) {
+      if (feature.properties && feature.properties.TAXA) {
+        layer.bindTooltip(feature.properties.TAXA);
+      }
+    }
 
-    <script>
+    function treePointToLayer(feature, latlng) {
+      return L.circleMarker(latlng, treeMarkerOptions);
+    }
 
-        // Make a Leaflet map with L.map().
-        // Store the map in the variable 'map'.
-        // "mapid" is the 'id' of the DOM element to contain the map.
-        var map = L.map('mapid',
-                        {
-          								center: [49.265637, -123.256113],
-          								zoom: 15
-        								}  // this object holds map options
-                  );
+    var lastLayerAdded;
+    var treeGeoJSONdata;
 
-      var topoTiles = L.tileLayer(
-          								'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                          {
-      										maxZoom: 17,
-      										attribution: 'Basemap data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Basemap style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-      									}
-      								).addTo(map);
+    function addTrees() {
+      if(lastLayerAdded) {
+        map.removeLayer(lastLayerAdded);
+      }
+      lastLayerAdded = L.geoJSON(treeGeoJSONdata, {
+        pointToLayer: treePointToLayer,
+        onEachFeature: onEachTree
+      }).addTo(map);
+    }
 
-        //var myPoint = L.marker(
-        //                 [49.265637, -123.256113]
-        //              ).addTo(map);
+    function highlightTrees(taxaToHighlight) {
+      var filteredData = treeGeoJSONdata.features.filter(function(feature) {
+        return feature.properties.TAXA.toLowerCase().includes(taxaToHighlight.toLowerCase());
+      });
 
-        //var myPoly = L.polygon(
-        //        			[
-        //        				[49.2797,-123.2678],
-        //                [49.2770,-123.2690],
-        //            		[49.2791,-123.2723],
-        //                [49.2797,-123.2678],
-        //              ],
-        //  						{color: 'red', weight: 6}
-        //						 ).addTo(map);
+      if(lastLayerAdded) {
+        map.removeLayer(lastLayerAdded);
+      }
+      lastLayerAdded = L.geoJSON(filteredData, {
+        pointToLayer: function(feature, latlng) {
+          return L.circleMarker(latlng, treeMarkerHighlightedOptions);
+        },
+        onEachFeature: onEachTree
+      }).addTo(map);
+    }
 
+    function resetHighlight() {
+      if(lastLayerAdded) {
+        map.removeLayer(lastLayerAdded);
+      }
+      lastLayerAdded = L.geoJSON(treeGeoJSONdata, {
+        pointToLayer: treePointToLayer,
+        onEachFeature: onEachTree
+      }).addTo(map);
+    }
 
-        var treeMarkerOptions = {
-        	radius: 4,
-        	fillColor: "#007800",
-        	color: "#000",
-        	weight: 1,
-        	opacity: 0.2,
-        	fillOpacity: 0.2
-      };
+    $(document).ready(function() {
+      $.getJSON("https://raw.githubusercontent.com/UBCGeodata/ubc-geospatial-opendata/master/ubcv/landscape/geojson/ubcv_campus_trees.geojson", function(data) {
+        treeGeoJSONdata = data;
+        addTrees();
+      });
 
-        var treeMarkerHighlightedOptions = {
-        	radius: 4,
-        	fillColor: "#FF9900",  // Make highlighted trees orange.
-        	color: "#000",
-        	weight: 1,
-        	opacity: 0.3,
-        	fillOpacity: 0.5
-      };
-
-        function onEachTree(feature, layer) {
-           // does this tree even have a property named TAXA?
-           if (feature.properties && feature.properties.TAXA) {
-              layer.bindTooltip(feature.properties.TAXA);
-           }
-        }
-
-        function treePointToLayer(feature, latlng) {
-
-          // the next conditional lets us differentiate between the
-          // styling we use when we are highlighting a particular taxa
-          // of trees versus when we are displaying all trees.
-
-          if (taxaToHighlight === "") {
-            treeMarkerOptionsToUse = treeMarkerOptions;
-          } else {
-            treeMarkerOptionsToUse = treeMarkerHighlightedOptions;
-          }
-
-          // for the current feature, make a circleMarker.
-          return L.circleMarker(
-            latlng,
-            treeMarkerOptionsToUse
-          );
-        }
-
-        function treesToFilter (feature, layer) {
-          if(taxaToHighlight === "") {
-            return true;
-            // In this case, we're not highlighting anything, so draw everything.
-          }
-          else if (feature.properties && feature.properties.TAXA) {
-            // We just checked to make sure there are properties to avoid an error
-            //   by asking for the .TAXA when there are no properties.
-            // Now, we need to check to see if the .TAXA matches what we're
-            //   trying to highlight.
-            return feature.properties.TAXA.toLowerCase().includes(taxaToHighlight.toLowerCase());
-      		// We ignore uppercase/lowercase differences.
-          } else {
-            return false;
-            // This is for features that lack properties.
-            // Don't display them.
-          }
-        }
-
-      	var lastLayerAdded = {};
-        // Keeping track of lastLayerAdded lets us reset the map layers
-        // being shown so we don’t keep on layering new data on old.
-
-        function addTrees() {
-          if(map.hasLayer(lastLayerAdded)){  // reset the map layers if relevant.
-            map.removeLayer(lastLayerAdded);
-          }
-          lastLayerAdded = L.geoJSON(treeGeoJSONdata, {
-       												pointToLayer: treePointToLayer,
-                     				  onEachFeature: onEachTree,
-              								filter: treesToFilter
-            										// filter out trees we aren't looking for,
-            										//   if any.
-          									 }
-                           );
-          lastLayerAdded.addTo(map);
-        };
-
-        var taxaToHighlight = "";
-        // This is set by someone pressing the highlight button.
-        // If it's an empty string, then just draw everything.
-
-        function highlightTrees() {
-          taxaToHighlight = document
-            .getElementById("highlightTreesTextEntry")
-            .value;  // get any text from the input box.
-          addTrees(); // add the trees.
-          taxaToHighlight = "";  // reset so that "Show All Trees" works.
-        }
-
-      var treeGeoJSONdata; // Where we store tree GeoJSON data
-
-        // load GeoJSON from a file on the web
-        // $ is jQuery.
-      $.getJSON("https://raw.githubusercontent.com/UBCGeodata/ubc-geospatial-opendata/master/ubcv/landscape/geojson/ubcv_campus_trees.geojson",
-                  function(data){
-          					// Store data for later:
-      	      		treeGeoJSONdata = data;
-          					// Create event listener for ShowAllTrees Button:
-      						document
-                      .getElementById("showAllTreesButton")
-                      .addEventListener("click", addTrees);
-          					// Create event listener for the highlightTrees Button:
-          					document
-                      .getElementById("highlightTreesButton")
-                      .addEventListener("click", highlightTrees);
-
-        					}
-        );
-    </script>
-  </body>
+      $('#showAllTreesButton').click(addTrees);
+      $('#highlightTreesButton').click(function() {
+        var taxa = $('#highlightTreesTextEntry').val();
+        highlightTrees(taxa);
+      });
+      $('#resetHighlightButton').click(resetHighlight);
+    });
+  </script>
+</body>
 </html>
