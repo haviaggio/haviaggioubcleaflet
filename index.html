@@ -19,7 +19,7 @@
 </head>
 <body>
   <div id="map"></div>
-  <div id="info-panel">click on a parking area for info :D</div>
+  <div id="info-panel">Click on a parking area for info :D</div>
   <script>
     var map = L.map('map').setView([49.2606, -123.2460], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -43,8 +43,6 @@
         fillOpacity: 0.5
       };
     }
-
-    // ... other functions ...
 
     function onEachFeature(feature, layer) {
       layer.on({
